@@ -1,0 +1,24 @@
+[package]
+name = "cubic"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.97"
+bytemuck = { version = "1.22.0", features = ["derive"] }
+glam = { version = "0.30.1", features = ["bytemuck", "mint"] }
+glm = "0.2.3"
+pollster = { version = "0.4.0", features = ["macro"] }
+serde = { version = "1.0.219", features = ["derive"] }
+toml = "0.8.20"
+wgpu = "24.0.3"
+winit = { version = "0.30.9", features = ["mint"] }
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+
+[profile.dev.package."*"]
