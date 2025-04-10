@@ -6,8 +6,8 @@ use super::{
 };
 
 pub struct RenderChainBuilder {
-    render_state: Rc<RenderState>,
     stages: Vec<Box<dyn RenderStage>>,
+    render_state: Rc<RenderState>,
 }
 
 pub struct RenderChain {

@@ -6,6 +6,9 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.97"
 bytemuck = { version = "1.22.0", features = ["derive"] }
+egui = { version = "0.31.1", features = ["mint"] }
+egui-wgpu = { version = "0.31.1", features = ["wayland", "winit", "x11"] }
+egui-winit = { version = "0.31.1", default-features = false, features = ["bytemuck", "clipboard", "wayland", "x11"] }
 glam = { version = "0.30.1", features = ["bytemuck", "mint"] }
 glm = "0.2.3"
 pollster = { version = "0.4.0", features = ["macro"] }

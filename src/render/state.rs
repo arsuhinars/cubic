@@ -9,15 +9,15 @@ use winit::window::Window;
 const DEPTH_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
 pub struct RenderState {
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    surface: wgpu::Surface<'static>,
+    surface_config: wgpu::SurfaceConfiguration,
     depth_texture: RefCell<(wgpu::Texture, wgpu::TextureView)>,
+    queue: wgpu::Queue,
+    device: wgpu::Device,
 }
 
 impl RenderState {
-    pub async fn new(
-        window: Arc<Window>,
-    ) -> anyhow::Result<(Self, wgpu::Surface<'static>, wgpu::SurfaceConfiguration)> {
+    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
         let instance = wgpu::Instance::new(&Default::default());
         let window_size = window.inner_size();
         let surface = instance.create_surface(window)?;
@@ -65,9 +65,11 @@ impl RenderState {
             device,
             queue,
             depth_texture: RefCell::new((depth_texture, depth_view)),
+            surface,
+            surface_config,
         };
 
-        Ok((render_state, surface, surface_config))
+        Ok(render_state)
     }
 
     pub fn device(&self) -> &wgpu::Device {
@@ -78,7 +80,16 @@ impl RenderState {
         &self.queue
     }
 
-    pub fn resize_depth_texture(&self, size: [u32; 2]) {
+    pub fn resize_surface(&self, size: [u32; 2]) {
+        self.surface.configure(
+            &self.device,
+            &wgpu::SurfaceConfiguration {
+                width: size[0],
+                height: size[1],
+                ..self.surface_config.clone()
+            },
+        );
+
         let depth_texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: None,
             size: wgpu::Extent3d {
@@ -97,7 +108,21 @@ impl RenderState {
         self.depth_texture.replace((depth_texture, depth_view));
     }
 
+    pub fn surface_texture(&self) -> anyhow::Result<wgpu::SurfaceTexture> {
+        self.surface
+            .get_current_texture()
+            .map_err(anyhow::Error::new)
+    }
+
+    pub fn surface_format(&self) -> wgpu::TextureFormat {
+        self.surface_config.format
+    }
+
     pub fn depth_view(&self) -> Ref<'_, wgpu::TextureView> {
         Ref::map(self.depth_texture.borrow(), |(_, v)| v)
+    }
+
+    pub fn depth_format(&self) -> wgpu::TextureFormat {
+        DEPTH_TEXTURE_FORMAT
     }
 }

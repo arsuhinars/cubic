@@ -17,14 +17,13 @@ impl FrameClock {
     }
 
     pub fn wait_next_frame(&mut self) -> Duration {
-        let now = Instant::now();
         let mut delta = Duration::ZERO;
         if let Some(last_instant) = self.last_instant {
-            delta = now - last_instant;
+            delta = Instant::now() - last_instant;
             sleep(self.target_frametime.saturating_sub(delta));
         }
 
-        self.last_instant = Some(now);
+        self.last_instant = Some(Instant::now());
 
         delta
     }

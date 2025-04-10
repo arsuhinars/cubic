@@ -5,9 +5,10 @@ use wgpu::SurfaceTexture;
 use super::RenderState;
 
 pub struct RenderContext<'a> {
-    encoder: RefCell<wgpu::CommandEncoder>,
+    state: &'a RenderState,
     surface_view: wgpu::TextureView,
     depth_view: Ref<'a, wgpu::TextureView>,
+    encoder: RefCell<wgpu::CommandEncoder>,
 }
 
 impl<'a> RenderContext<'a> {
@@ -17,10 +18,19 @@ impl<'a> RenderContext<'a> {
         let depth_view = state.depth_view();
 
         Self {
+            state,
             encoder: RefCell::new(encoder),
             surface_view,
             depth_view,
         }
+    }
+
+    pub fn device(&self) -> &wgpu::Device {
+        self.state.device()
+    }
+
+    pub fn queue(&self) -> &wgpu::Queue {
+        self.state.queue()
     }
 
     pub fn encoder(&self) -> RefMut<'_, wgpu::CommandEncoder> {

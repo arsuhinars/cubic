@@ -3,8 +3,8 @@ use app::{App, AppConfig};
 
 mod app;
 mod render;
+mod ui;
 mod utils;
-mod world;
 
 static CONFIG_PATH: &str = "config.toml";
 
