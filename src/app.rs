@@ -1,7 +1,6 @@
-use std::{fs::File, io::Read, iter, path::Path, sync::Arc};
+use std::{fs::File, io::Read, iter, path::Path, rc::Rc, sync::Arc};
 
 use serde::Deserialize;
-use wgpu::{Surface, SurfaceConfiguration};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -10,7 +9,13 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use crate::{render::state::RenderState, utils::clock::FrameClock};
+use crate::{
+    render::{
+        RenderChain, RenderContext, RenderState,
+        stage::clear::{ClearStage, ClearStageParams},
+    },
+    utils::clock::FrameClock,
+};
 
 #[derive(Deserialize)]
 pub struct AppConfig {
@@ -35,12 +40,13 @@ pub struct App {
     state: Option<AppState>,
 }
 
-pub struct AppState {
+struct AppState {
     window: Arc<Window>,
-    surface: Surface<'static>,
-    default_surface_config: SurfaceConfiguration,
+    surface: wgpu::Surface<'static>,
+    surface_default_config: wgpu::SurfaceConfiguration,
     frame_clock: FrameClock,
-    render_state: Arc<RenderState>,
+    render_state: Rc<RenderState>,
+    render_chain: RenderChain,
 }
 
 impl App {
@@ -122,14 +128,22 @@ impl AppState {
         let window = Arc::new(window);
         let (render_state, surface, default_surface_config) =
             RenderState::new(window.clone()).await?;
-        let render_state = Arc::new(render_state);
+        let render_state = Rc::new(render_state);
+
+        let render_chain = RenderChain::builder(render_state.clone())
+            .stage::<ClearStage>(ClearStageParams {
+                color: wgpu::Color::WHITE,
+                depth: 1.0,
+            })
+            .build();
 
         Ok(Self {
             window,
             surface,
-            default_surface_config,
+            surface_default_config: default_surface_config,
             frame_clock: FrameClock::new(config.max_frame_rate),
             render_state,
+            render_chain,
         })
     }
 
@@ -141,39 +155,23 @@ impl AppState {
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
                 width: window_size.width,
                 height: window_size.height,
-                ..self.default_surface_config.clone()
+                ..self.surface_default_config.clone()
             },
         );
+        self.render_state.resize_depth_texture(window_size.into());
     }
 
     fn on_render(&mut self) -> anyhow::Result<()> {
         let surface_texture = self.surface.get_current_texture()?;
-        let texture_view = surface_texture.texture.create_view(&Default::default());
+        let context = RenderContext::new(&self.render_state, &surface_texture);
 
-        let mut encoder = self
-            .render_state
-            .device()
-            .create_command_encoder(&Default::default());
-
-        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &texture_view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            ..Default::default()
-        });
+        self.render_chain.render(&context);
 
         self.render_state
             .queue()
-            .submit(iter::once(encoder.finish()));
-
+            .submit(iter::once(context.finish()));
         self.window.pre_present_notify();
         surface_texture.present();
-
         self.frame_clock.wait_next_frame();
 
         Ok(())
